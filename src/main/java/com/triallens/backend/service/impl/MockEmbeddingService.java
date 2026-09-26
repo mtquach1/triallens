@@ -14,12 +14,11 @@ public class MockEmbeddingService implements EmbeddingService {
 
     @Override
     public String generateEmbedding(String text) {
-        // Seed random with text hash so the same string always generates the same vector
+        // Seed random with text hash code so identical text generates identical vectors
         Random random = new Random(text.hashCode());
         StringBuilder sb = new StringBuilder("[");
         
         for (int i = 0; i < VECTOR_DIMENSION; i++) {
-            // Generate values between -1.0 and 1.0
             double value = (random.nextDouble() * 2) - 1;
             sb.append(String.format("%.6f", value));
             if (i < VECTOR_DIMENSION - 1) {

@@ -12,7 +12,7 @@ import java.util.List;
 public interface DocumentChunkRepository extends JpaRepository<DocumentChunk, Long> {
 
     /**
-     * Finds the top K most similar text chunks for a given query vector using pgvector cosine distance (<=>).
+     * Finds top K similar chunks within a Study using pgvector cosine distance (<=>).
      */
     @Query(value = """
             SELECT dc.*, (dc.embedding <=> cast(:queryVector as vector)) as distance

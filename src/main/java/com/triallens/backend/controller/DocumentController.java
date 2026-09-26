@@ -36,12 +36,10 @@ public class DocumentController {
             Study study = studyRepository.findById(studyId)
                     .orElseThrow(() -> new IllegalArgumentException("Study not found with id: " + studyId));
 
-            Document document = Document.builder()
-                    .study(study)
-                    .fileName(file.getOriginalFilename())
-                    .fileType(file.getContentType())
-                    .fileSize(file.getSize())
-                    .build();
+            // Construct Document entity cleanly
+            Document document = new Document();
+            document.setStudy(study);
+            document.setFilename(file.getOriginalFilename()); // Fix: Pass original filename
 
             document = documentRepository.save(document);
 
@@ -63,7 +61,7 @@ public class DocumentController {
                 documentChunkRepository.save(chunk);
             }
 
-            return ResponseEntity.ok("Successfully uploaded and processed " + chunks.size() + " chunks with embeddings.");
+            return ResponseEntity.ok("Successfully uploaded and processed " + chunks.size() + " chunks with vector embeddings.");
 
         } catch (IOException e) {
             return ResponseEntity.status(500).body("Error processing file: " + e.getMessage());
