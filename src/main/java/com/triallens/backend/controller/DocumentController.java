@@ -6,12 +6,14 @@ import com.triallens.backend.model.Study;
 import com.triallens.backend.repository.DocumentChunkRepository;
 import com.triallens.backend.repository.DocumentRepository;
 import com.triallens.backend.repository.StudyRepository;
+import com.triallens.backend.service.EmbeddingService;
 import com.triallens.backend.service.PdfService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -20,41 +22,51 @@ import java.util.List;
 public class DocumentController {
 
     private final PdfService pdfService;
+    private final EmbeddingService embeddingService;
     private final StudyRepository studyRepository;
     private final DocumentRepository documentRepository;
     private final DocumentChunkRepository documentChunkRepository;
 
     @PostMapping("/upload")
-    public ResponseEntity<?> uploadDocument(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam("studyId") Long studyId) {
-
+    public ResponseEntity<String> uploadDocument(
+            @RequestParam("studyId") Long studyId,
+            @RequestParam("file") MultipartFile file) {
+        
         try {
             Study study = studyRepository.findById(studyId)
-                    .orElseThrow(() -> new RuntimeException("Study not found"));
+                    .orElseThrow(() -> new IllegalArgumentException("Study not found with id: " + studyId));
 
             Document document = Document.builder()
-                    .filename(file.getOriginalFilename())
-                    .version(1)
                     .study(study)
+                    .fileName(file.getOriginalFilename())
+                    .fileType(file.getContentType())
+                    .fileSize(file.getSize())
                     .build();
-            documentRepository.save(document);
 
-            // Extract text into 1000-character chunks
-            List<String> textChunks = pdfService.extractAndChunkText(file, 1000);
+            document = documentRepository.save(document);
 
-            for (int i = 0; i < textChunks.size(); i++) {
+            // 1. Extract text chunks
+            List<String> chunks = pdfService.extractAndChunkText(file, 1000);
+
+            // 2. Generate vector embeddings and save chunks
+            for (int i = 0; i < chunks.size(); i++) {
+                String chunkText = chunks.get(i);
+                String vectorEmbedding = embeddingService.generateEmbedding(chunkText);
+
                 DocumentChunk chunk = DocumentChunk.builder()
                         .document(document)
-                        .chunkText(textChunks.get(i))
+                        .chunkText(chunkText)
                         .pageNumber(i + 1)
+                        .embedding(vectorEmbedding)
                         .build();
+
                 documentChunkRepository.save(chunk);
             }
 
-            return ResponseEntity.ok("Successfully uploaded and processed " + textChunks.size() + " chunks.");
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error processing file: " + e.getMessage());
+            return ResponseEntity.ok("Successfully uploaded and processed " + chunks.size() + " chunks with embeddings.");
+
+        } catch (IOException e) {
+            return ResponseEntity.status(500).body("Error processing file: " + e.getMessage());
         }
     }
 }

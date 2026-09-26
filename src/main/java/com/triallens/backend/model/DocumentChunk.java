@@ -2,14 +2,19 @@ package com.triallens.backend.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnTransformer;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "document_chunks")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class DocumentChunk {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -18,13 +23,22 @@ public class DocumentChunk {
     @JoinColumn(name = "document_id", nullable = false)
     private Document document;
 
-    private String sectionTitle;
-    private Integer pageNumber;
-
     @Column(columnDefinition = "TEXT", nullable = false)
     private String chunkText;
 
-    // Vector field for pgvector similarity searches
-    @Column(name = "embedding", columnDefinition = "vector(1536)")
+    private Integer pageNumber;
+
+    private String sectionTitle;
+
+    @Column(columnDefinition = "vector(1536)")
+    @ColumnTransformer(write = "?::vector")
     private String embedding;
+
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 }
